@@ -8,15 +8,19 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .library(name: "AOS", targets: [
+        .library(name: "AOSLib", targets: [
             "Core", "Logging", "Common", "Models", "Storage", "Networking", "Security",
             "Repositories", "AI", "Business", "Coding", "Company",
             "DailyMission", "Dashboard", "Finance", "Goals", "Habits",
             "Journal", "Profile", "Reading", "Authentication"
-        ])
+        ]),
+        .executable(name: "AOS", targets: ["App"])
     ],
     dependencies: [],
     targets: [
+        // ── App Entry Point ──
+        .executableTarget(name: "App", path: "App"),
+
         // ── Foundation Layer ──
         .target(name: "Core", path: "Core"),
         .target(name: "Logging", path: "Logging"),
