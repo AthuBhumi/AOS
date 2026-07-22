@@ -19,7 +19,16 @@ let package = Package(
     dependencies: [],
     targets: [
         // ── App Entry Point ──
-        .executableTarget(name: "App", path: "App"),
+        .executableTarget(
+            name: "App",
+            dependencies: [
+                "Core", "Logging", "Common", "Models", "Storage", "Networking", "Security",
+                "Repositories", "AI", "Authentication", "Business", "Coding", "Company",
+                "DailyMission", "Dashboard", "Finance", "Goals", "Habits",
+                "Journal", "Profile", "Reading"
+            ],
+            path: "App"
+        ),
 
         // ── Foundation Layer ──
         .target(name: "Core", path: "Core"),
