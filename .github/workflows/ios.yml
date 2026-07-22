@@ -24,13 +24,9 @@ jobs:
     - name: Resolve Package Dependencies
       run: swift package resolve
 
-    - name: Build Executable for iOS Simulator
+    - name: Build Real iOS Simulator App & Package for Appetize.io
       run: |
-        swift build -c release || true
-
-    - name: Package Appetize.io Zip Bundle via Python
-      run: |
-        python3 build_appetize_bundle.py
+        python3 package_real_appetize.py
 
     - name: Upload Appetize Zip Artifact
       uses: actions/upload-artifact@v4
