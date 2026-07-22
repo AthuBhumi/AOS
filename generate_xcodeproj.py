@@ -35,7 +35,7 @@ def main():
         file_refs[fpath] = file_ref_id
         build_files[fpath] = build_file_id
 
-    # Create Group Hierarchy
+    # Group Hierarchy
     dir_groups = {}
     for fpath in swift_files:
         parts = fpath.split('/')
@@ -45,7 +45,6 @@ def main():
                 dir_groups[group_name] = []
             dir_groups[group_name].append(fpath)
 
-    # Generate PBX Sections
     pbx_file_refs = []
     pbx_build_files = []
     pbx_sources = []
@@ -59,7 +58,6 @@ def main():
         pbx_build_files.append(f'\t\t{bfid} /* {fname} in Sources */ = {{isa = PBXBuildFile; fileRef = {fref} /* {fname} */; }};')
         pbx_sources.append(f'\t\t\t\t{bfid} /* {fname} in Sources */,')
 
-    # Sub-groups
     sub_group_ids = {}
     for gname, fpaths in dir_groups.items():
         gid = generate_id()
@@ -79,11 +77,9 @@ def main():
             f'\t\t}};'
         )
 
-    # Main Group
     main_group_id = generate_id()
     main_children = [f'\t\t\t\t{gid} /* {gname} */,' for gname, gid in sub_group_ids.items()]
     
-    # Add Info.plist reference
     info_plist_ref = generate_id()
     pbx_file_refs.append(f'\t\t{info_plist_ref} /* Info.plist */ = {{isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "App/Info.plist"; sourceTree = "<group>"; }};')
     main_children.append(f'\t\t\t\t{info_plist_ref} /* Info.plist */,')
@@ -99,7 +95,6 @@ def main():
     )
     pbx_groups.append(main_group_section)
 
-    # Build Configuration IDs
     proj_config_debug = generate_id()
     proj_config_release = generate_id()
     target_config_debug = generate_id()
@@ -107,7 +102,6 @@ def main():
     proj_config_list = generate_id()
     target_config_list = generate_id()
 
-    # Targets & Phased Builds
     target_id = generate_id()
     sources_phase_id = generate_id()
     frameworks_phase_id = generate_id()
@@ -213,7 +207,8 @@ def main():
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				SDKROOT = iphoneos;
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				SWIFT_VERSION = 5.0;
 			}};
 			name = Debug;
@@ -227,7 +222,8 @@ def main():
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				SDKROOT = iphoneos;
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				SWIFT_VERSION = 5.0;
 			}};
 			name = Release;
