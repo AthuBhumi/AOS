@@ -12,7 +12,9 @@ def main():
     if os.path.exists(zip_path):
         os.remove(zip_path)
 
-    print("=== Step 1: Building iOS Simulator App via xcodebuild ===")
+    print("=== Step 1: Building iOS Simulator Binary via xcodebuild ===")
+    
+    # 1. Try xcodebuild first
     cmd = [
         "xcodebuild",
         "-scheme", "AOS",
@@ -27,52 +29,63 @@ def main():
     
     print(f"Executing: {' '.join(cmd)}")
     res = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True)
-    
-    print("xcodebuild STDOUT:")
-    print(res.stdout[-3000:] if len(res.stdout) > 3000 else res.stdout)
-    
-    if res.returncode != 0:
-        print("xcodebuild STDERR:")
-        print(res.stderr[-3000:] if len(res.stderr) > 3000 else res.stderr)
+    print("xcodebuild output:")
+    print(res.stdout[-2000:] if res.stdout else "No stdout")
+    if res.stderr:
+        print("xcodebuild errors:", res.stderr[-2000:])
 
-    print("=== Step 2: Searching for compiled .app folder ===")
-    app_folder = None
-    if os.path.exists(derived_data):
-        for root, dirs, files in os.walk(derived_data):
-            for d in dirs:
-                if d.endswith(".app"):
-                    candidate = os.path.join(root, d)
-                    if os.path.exists(os.path.join(candidate, "Info.plist")):
-                        app_folder = candidate
-                        break
-            if app_folder:
-                break
-
-    if not app_folder:
-        print("Searching across entire workspace for .app folder...")
-        for root, dirs, files in os.walk(repo_root):
-            if "DerivedData" in root or ".build" in root or "appetize_stage" in root:
-                for d in dirs:
-                    if d.endswith(".app"):
-                        candidate = os.path.join(root, d)
-                        if os.path.exists(os.path.join(candidate, "Info.plist")):
-                            app_folder = candidate
+    # 2. Search for compiled binary executable in DerivedData & .build
+    binary_found = None
+    search_dirs = [derived_data, os.path.join(repo_root, ".build")]
+    
+    for search_dir in search_dirs:
+        if os.path.exists(search_dir):
+            for root, dirs, files in os.walk(search_dir):
+                for f in files:
+                    if f in ["App", "AOS"] and not f.endswith(".o") and not f.endswith(".d") and not f.endswith(".swiftmodule"):
+                        fpath = os.path.join(root, f)
+                        if os.path.isfile(fpath) and os.path.getsize(fpath) > 1000:
+                            binary_found = fpath
                             break
-            if app_folder:
+                if binary_found:
+                    break
+
+    if not binary_found:
+        print("=== Trying fallback swift build ===")
+        sb_cmd = ["swift", "build", "-c", "release"]
+        res2 = subprocess.run(sb_cmd, cwd=repo_root, capture_output=True, text=True)
+        print("swift build output:", res2.stdout[-1500:] if res2.stdout else "")
+        if res2.stderr:
+            print("swift build errors:", res2.stderr[-1500:])
+
+        for root, dirs, files in os.walk(os.path.join(repo_root, ".build")):
+            for f in files:
+                if f in ["App", "AOS"] and not f.endswith(".o") and not f.endswith(".d"):
+                    fpath = os.path.join(root, f)
+                    if os.path.isfile(fpath) and os.path.getsize(fpath) > 1000:
+                        binary_found = fpath
+                        break
+            if binary_found:
                 break
 
-    if not app_folder:
-        print("Creating emergency iOS Simulator .app bundle fallback...")
-        stage_dir = os.path.join(repo_root, "appetize_stage")
-        app_folder = os.path.join(stage_dir, "ATHARVA_OS.app")
-        os.makedirs(app_folder, exist_ok=True)
-        
-        # Create valid dummy binary & Info.plist
-        with open(os.path.join(app_folder, "AOS"), "wb") as f:
-            f.write(b"\xCF\xFA\xED\xFE\x0C\x00\x00\x01\x00\x00\x00\x00\x02\x00\x00\x00")
-        os.chmod(os.path.join(app_folder, "AOS"), 0o755)
+    if not binary_found or os.path.getsize(binary_found) < 1000:
+        print(f"ERROR: No valid compiled binary > 1KB found!")
+        sys.exit(1)
 
-        info_plist = """<?xml version="1.0" encoding="UTF-8"?>
+    print(f"=== SUCCESS: Found real compiled binary ({os.path.getsize(binary_found)} bytes) at: {binary_found} ===")
+
+    # Create .app directory
+    stage_dir = os.path.join(repo_root, "appetize_stage")
+    app_folder = os.path.join(stage_dir, "ATHARVA_OS.app")
+    if os.path.exists(stage_dir):
+        shutil.rmtree(stage_dir)
+    os.makedirs(app_folder, exist_ok=True)
+
+    target_binary = os.path.join(app_folder, "AOS")
+    shutil.copy2(binary_found, target_binary)
+    os.chmod(target_binary, 0o755)
+
+    info_plist = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -86,26 +99,18 @@ def main():
     <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
 </dict>
 </plist>"""
-        with open(os.path.join(app_folder, "Info.plist"), "w", encoding="utf-8") as f:
-            f.write(info_plist)
+    with open(os.path.join(app_folder, "Info.plist"), "w", encoding="utf-8") as f:
+        f.write(info_plist)
 
-    print(f"USING iOS .app BUNDLE AT: {app_folder}")
-    parent_dir = os.path.dirname(app_folder)
-    app_basename = os.path.basename(app_folder)
-
-    print(f"=== Step 3: Packaging {app_basename} into Appetize_iOS_App.zip ===")
+    print(f"=== Zipping {app_folder} into Appetize_iOS_App.zip ===")
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for root, dirs, files in os.walk(app_folder):
             for file in files:
                 abs_path = os.path.join(root, file)
-                rel_path = os.path.relpath(abs_path, parent_dir)
+                rel_path = os.path.relpath(abs_path, stage_dir)
                 zipf.write(abs_path, rel_path)
 
     print(f"Appetize.io Zip created successfully! File size: {os.path.getsize(zip_path)} bytes")
-    with zipfile.ZipFile(zip_path, 'r') as zipf:
-        print("Zip Root Directory Contents:")
-        for item in zipf.namelist():
-            print(f"   {item}")
 
 if __name__ == "__main__":
     main()
