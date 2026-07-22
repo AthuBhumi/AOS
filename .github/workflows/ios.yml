@@ -28,15 +28,16 @@ jobs:
           -project ATHARVA_OS.xcodeproj \
           -scheme ATHARVA_OS \
           -sdk iphonesimulator \
-          -destination 'platform=iOS Simulator,name=iPhone 16' \
+          -destination 'generic/platform=iOS Simulator' \
           -derivedDataPath ./DerivedData \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
-          clean build | tail -100
+          clean build
 
     - name: Verify .app Directory
+      if: always()
       run: |
-        ls -la DerivedData/Build/Products/Debug-iphonesimulator/
+        ls -la DerivedData/Build/Products/Debug-iphonesimulator/ || echo "Products dir not found"
 
     - name: Compress ATHARVA_OS.app for Appetize.io
       run: |
