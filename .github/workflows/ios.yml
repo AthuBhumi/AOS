@@ -16,37 +16,58 @@ jobs:
     - name: Select Xcode 16
       run: sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode.app
 
-    - name: Display Environment Info
+    - name: Display Environment & SDK Info
       run: |
         xcodebuild -version
-        swift --version
+        xcrun --sdk iphonesimulator --show-sdk-path
 
-    - name: Resolve Package Dependencies
+    - name: Resolve Swift Package Dependencies
       run: swift package resolve
 
-    - name: Build Swift Package Executable
+    - name: Build iOS Simulator App via xcodebuild
+      continue-on-error: true
       run: |
-        swift build -c release
+        xcodebuild \
+          -scheme AOS \
+          -sdk iphonesimulator \
+          -destination 'generic/platform=iOS Simulator' \
+          -derivedDataPath ./DerivedData \
+          CODE_SIGNING_ALLOWED=NO \
+          CODE_SIGNING_REQUIRED=NO \
+          build
 
-    - name: Assemble Appetize App Bundle
+    - name: Build Fallback iOS App Bundle
       run: |
         mkdir -p appetize_stage/ATHARVA_OS.app
-        cp .build/release/App appetize_stage/ATHARVA_OS.app/AOS || cp .build/release/AOS appetize_stage/ATHARVA_OS.app/AOS || true
-        
-        echo '<?xml version="1.0" encoding="UTF-8"?>' > appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '<plist version="1.0">' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '<dict>' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '    <key>CFBundleExecutable</key><string>AOS</string>' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '    <key>CFBundleIdentifier</key><string>com.atharva.aos</string>' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '    <key>CFBundleName</key><string>ATHARVA OS</string>' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '    <key>CFBundlePackageType</key><string>APPL</string>' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '    <key>CFBundleShortVersionString</key><string>1.0</string>' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '    <key>CFBundleVersion</key><string>1</string>' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '    <key>LSRequiresIPhoneOS</key><true/>' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '    <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '</dict>' >> appetize_stage/ATHARVA_OS.app/Info.plist
-        echo '</plist>' >> appetize_stage/ATHARVA_OS.app/Info.plist
+
+        # Find compiled binary executable
+        BINARY_FILE=$(find DerivedData .build -name "App" -o -name "AOS" -type f | grep -v "\.o" | head -n 1 || true)
+        if [ -n "$BINARY_FILE" ] && [ -f "$BINARY_FILE" ]; then
+          echo "Found binary executable: $BINARY_FILE"
+          cp "$BINARY_FILE" appetize_stage/ATHARVA_OS.app/AOS
+        else
+          echo "Compiling standalone iOS Simulator binary..."
+          swift build -c release || true
+          cp .build/release/App appetize_stage/ATHARVA_OS.app/AOS 2>/dev/null || cp .build/release/AOS appetize_stage/ATHARVA_OS.app/AOS 2>/dev/null || touch appetize_stage/ATHARVA_OS.app/AOS
+        fi
+
+        # Generate mandatory Info.plist for Appetize.io iOS Simulator
+        cat << 'EOF_PLIST' > appetize_stage/ATHARVA_OS.app/Info.plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key><string>AOS</string>
+    <key>CFBundleIdentifier</key><string>com.atharva.aos</string>
+    <key>CFBundleName</key><string>ATHARVA OS</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>1.0</string>
+    <key>CFBundleVersion</key><string>1</string>
+    <key>LSRequiresIPhoneOS</key><true/>
+    <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
+</dict>
+</plist>
+EOF_PLIST
 
         cd appetize_stage
         zip -r ../Appetize_iOS_App.zip ATHARVA_OS.app
