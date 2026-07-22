@@ -1,59 +1,84 @@
-name: iOS Cloud Build
+name: iOS Cloud Build & Appetize Package
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-appetize:
     runs-on: macos-15
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Select Xcode
+    - name: Select Xcode Version
       run: sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode.app
 
-    - name: Show Swift version
-      run: swift --version
+    - name: Display Environment Info
+      run: |
+        xcodebuild -version
+        swift --version
 
-    - name: Resolve dependencies
+    - name: Resolve Swift Package Dependencies
       run: swift package resolve
 
-    - name: Build all targets
-      run: swift build -v 2>&1 | tail -100
-
-    - name: List build output
-      if: always()
-      run: find .build -name "*.o" -o -name "*.swiftmodule" -o -name "AOS" | head -50
-
-    - name: Generate Xcode Project
+    - name: Build Executable for iOS Simulator
       run: |
-        mkdir -p AOSIPHONE.xcodeproj
-        swift package dump-package > package-dump.json
+        swift build -c release --triple arm64-apple-ios17.0-simulator || swift build -c release
 
-    - name: Build iOS Simulator App
+    - name: Assemble Appetize iOS .app Bundle
       run: |
-        xcodebuild build \
-          -scheme AOS \
-          -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
-          -derivedDataPath ./DerivedData \
-          CODE_SIGNING_ALLOWED=NO \
-          2>&1 | tail -80
+        mkdir -p appetize_bundle/ATHARVA_OS.app
+        
+        # Copy compiled executable binary
+        if [ -f .build/arm64-apple-ios17.0-simulator/release/App ]; then
+          cp .build/arm64-apple-ios17.0-simulator/release/App appetize_bundle/ATHARVA_OS.app/AOS
+        elif [ -f .build/release/App ]; then
+          cp .build/release/App appetize_bundle/ATHARVA_OS.app/AOS
+        elif [ -f .build/release/AOS ]; then
+          cp .build/release/AOS appetize_bundle/ATHARVA_OS.app/AOS
+        fi
 
-    - name: Package build artifacts
-      if: always()
+        # Create Info.plist required by Appetize.io iOS Simulator
+        cat << 'EOF' > appetize_bundle/ATHARVA_OS.app/Info.plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>AOS</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.atharva.aos</string>
+    <key>CFBundleName</key>
+    <string>ATHARVA OS</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UIDeviceFamily</key>
+    <array>
+        <integer>1</integer>
+        <integer>2</integer>
+    </array>
+</dict>
+</plist>
+EOF
+
+    - name: Create Appetize Upload Zip
       run: |
-        mkdir -p artifacts
-        cp -r DerivedData/Build/Products/Debug-iphonesimulator/ artifacts/ 2>/dev/null || true
-        cp -r .build/ artifacts/swift-build/ 2>/dev/null || true
-        ls -la artifacts/ || echo "No artifacts found"
+        cd appetize_bundle
+        zip -r ../Appetize_iOS_App.zip ATHARVA_OS.app
+        cd ..
+        ls -lh Appetize_iOS_App.zip
 
-    - name: Upload Build
-      if: always()
+    - name: Upload Appetize Zip Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: AOS-Build
-        path: artifacts/
-        if-no-files-found: warn
+        name: Appetize_iOS_App
+        path: Appetize_iOS_App.zip
