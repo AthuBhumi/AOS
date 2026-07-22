@@ -53,21 +53,21 @@ jobs:
 
         # Generate mandatory Info.plist for Appetize.io iOS Simulator
         cat << 'EOF_PLIST' > appetize_stage/ATHARVA_OS.app/Info.plist
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key><string>AOS</string>
-    <key>CFBundleIdentifier</key><string>com.atharva.aos</string>
-    <key>CFBundleName</key><string>ATHARVA OS</string>
-    <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
-    <key>CFBundleVersion</key><string>1</string>
-    <key>LSRequiresIPhoneOS</key><true/>
-    <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
-</dict>
-</plist>
-EOF_PLIST
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleExecutable</key><string>AOS</string>
+            <key>CFBundleIdentifier</key><string>com.atharva.aos</string>
+            <key>CFBundleName</key><string>ATHARVA OS</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>1.0</string>
+            <key>CFBundleVersion</key><string>1</string>
+            <key>LSRequiresIPhoneOS</key><true/>
+            <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
+        </dict>
+        </plist>
+        EOF_PLIST
 
         cd appetize_stage
         zip -r ../Appetize_iOS_App.zip ATHARVA_OS.app
