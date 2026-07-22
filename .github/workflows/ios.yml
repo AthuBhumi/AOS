@@ -13,68 +13,36 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Select Xcode Version
+    - name: Select Xcode 16
       run: sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode.app
 
-    - name: Display Environment Info
+    - name: Display Xcode Version
+      run: xcodebuild -version
+
+    - name: Generate Xcode Project File
+      run: python3 generate_xcodeproj.py
+
+    - name: Build Native iOS App for Simulator via xcodebuild
       run: |
-        xcodebuild -version
-        swift --version
+        xcodebuild \
+          -project ATHARVA_OS.xcodeproj \
+          -scheme ATHARVA_OS \
+          -sdk iphonesimulator \
+          -destination 'platform=iOS Simulator,name=iPhone 16' \
+          -derivedDataPath ./DerivedData \
+          CODE_SIGNING_ALLOWED=NO \
+          CODE_SIGNING_REQUIRED=NO \
+          clean build | tail -100
 
-    - name: Resolve Swift Package Dependencies
-      run: swift package resolve
-
-    - name: Build Executable for iOS Simulator
+    - name: Verify .app Directory
       run: |
-        swift build -c release --triple arm64-apple-ios17.0-simulator || swift build -c release
+        ls -la DerivedData/Build/Products/Debug-iphonesimulator/
 
-    - name: Assemble Appetize iOS .app Bundle
+    - name: Compress ATHARVA_OS.app for Appetize.io
       run: |
-        mkdir -p appetize_bundle/ATHARVA_OS.app
-        
-        # Copy compiled executable binary
-        if [ -f .build/arm64-apple-ios17.0-simulator/release/App ]; then
-          cp .build/arm64-apple-ios17.0-simulator/release/App appetize_bundle/ATHARVA_OS.app/AOS
-        elif [ -f .build/release/App ]; then
-          cp .build/release/App appetize_bundle/ATHARVA_OS.app/AOS
-        elif [ -f .build/release/AOS ]; then
-          cp .build/release/AOS appetize_bundle/ATHARVA_OS.app/AOS
-        fi
-
-        # Create Info.plist required by Appetize.io iOS Simulator
-        cat << 'EOF' > appetize_bundle/ATHARVA_OS.app/Info.plist
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key>
-    <string>AOS</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.atharva.aos</string>
-    <key>CFBundleName</key>
-    <string>ATHARVA OS</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>LSRequiresIPhoneOS</key>
-    <true/>
-    <key>UIDeviceFamily</key>
-    <array>
-        <integer>1</integer>
-        <integer>2</integer>
-    </array>
-</dict>
-</plist>
-EOF
-
-    - name: Create Appetize Upload Zip
-      run: |
-        cd appetize_bundle
-        zip -r ../Appetize_iOS_App.zip ATHARVA_OS.app
-        cd ..
+        cd DerivedData/Build/Products/Debug-iphonesimulator/
+        zip -r ../../../../Appetize_iOS_App.zip ATHARVA_OS.app
+        cd ../../../../
         ls -lh Appetize_iOS_App.zip
 
     - name: Upload Appetize Zip Artifact
